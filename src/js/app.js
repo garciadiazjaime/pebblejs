@@ -71,7 +71,7 @@ function testWebSocket() {
   websocket.onmessage = function(evt) {
     Vibe.vibrate('short');
     console.log('onmessage', JSON.stringify(evt.data));
-    if (evt.data === 'start_routine') {
+    if (evt.data === 'pebble_start_routine') {
       stateStartRoutine();
     }
   };

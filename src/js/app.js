@@ -4,29 +4,56 @@
  * This is where you write your app.
  */
 
-var UI = require('ui');
-var Vector2 = require('vector2');
-var ajax = require('ajax');
-var Vibe = require('ui/vibe');
-var Accel = require('ui/accel');
+ var ajax = require('ajax');
+ var Vibe = require('ui/vibe');
+ var Accel = require('ui/accel');
+ var UI = require('ui');
+ var Vector2 = require('vector2');
+
+var mainCard = require('cards/main')();
+var askReadyCardHandler = require('cards/askReady');
+var counterCardHandler = require('cards/counter');
+var completeCard = require('cards/complete')();
+var loadingCard = require('cards/loading')();
 
 var API_URL = 'http://10.0.6.80:3000/api/todoist/project/155704829/items';
-var state = 'init';
-var cardStart;
-var cartGetReady;
+var generalCounter = 0;
+var exercises;
 
-var waitingTime = 3000;
+var askReadyCard;
 
-var main = new UI.Card({
-  title: 'Pebble.js',
-  icon: 'images/menu_icon.png',
-  subtitle: '1 subtitle',
-  body: '2 body',
-  subtitleColor: 'indigo', // Named colors
-  bodyColor: '#9a0036' // Hex colors
-});
+// var waitingTime = 3000;
 
-main.show();
+
+loadingCard.show();
+
+ajax({ url: API_URL, type: 'json' },
+  function(data) {
+    console.log('data', JSON.stringify(data));
+    exercises = data.data;
+    // var items = data.data.map(function(item) {
+    //   return {
+    //     title: item.content,
+    //     icon: 'images/menu_icon.png',
+    //     subtitle: 'subtitle'
+    //   };
+    // });
+    // console.log('items', JSON.stringify(items));
+    // var menu = new UI.Menu({
+    //   sections: [{
+    //     items: items
+    //   }]
+    // });
+    // menu.on('select', function(e) {
+    //   console.log('Selected item #' + e.itemIndex + ' of section #' + e.sectionIndex);
+    //   console.log('The item is titled "' + e.item.title + '"');
+    // });
+    // menu.show();
+    // splashCard.hide();
+    mainCard.show();
+    testWebSocket();
+  }
+);
 
 
 var wsUri = 'ws://10.0.6.80:3333/';
@@ -44,57 +71,49 @@ function testWebSocket() {
   websocket.onmessage = function(evt) {
     Vibe.vibrate('short');
     console.log('onmessage', JSON.stringify(evt.data));
-    state = evt.data;
-    if (state === 'start_routine') {
-      console.log('start_routine');
+    if (evt.data === 'start_routine') {
       stateStartRoutine();
     }
-
   };
 
   websocket.onerror = function(evt) {
     console.log('onerror', JSON.stringify(evt));
   };
 }
-testWebSocket();
 
 function stateStartRoutine() {
-  cardStart = new UI.Card({
-    title: 'State A',
-    icon: 'images/menu_icon.png',
-    subtitle: 'Are you ready to start?',
-    body: 'Up: Yes \n Down: No'
+  askReadyCard = askReadyCardHandler(exercises[generalCounter]);
+
+  askReadyCard.on('click', 'up', function(e) {
+    stateShowCounter();
   });
 
-  cardStart.on('click', 'up', function(e) {
-    if (state === 'start_routine') {
-      stateGetReady();
+  askReadyCard.show();
+}
+
+var counterWindows = [];
+
+function stateShowCounter() {
+  var step = 3;
+  counterWindows.push(counterCardHandler(step));
+  counterWindows[counterWindows.length - 1].show();
+  askReadyCard.hide();
+
+  var interval = setInterval(function() {
+    step--;
+    if (step > 0) {
+      counterWindows.push(counterCardHandler(step));
+      counterWindows[counterWindows.length - 1].show();
     }
-  });
-
-  cardStart.show();
-}
-
-function stateGetReady() {
-  state = 'get_ready';
-  cartGetReady = new UI.Card({
-    title: 'Get Ready',
-    body: 'loading...'
-  });
-  cartGetReady.show();
-  cardStart.hide();
-  stateLongVibe();
-}
-
-function stateLongVibe() {
-  if (state === 'get_ready') {
-    state = 'long_vibe';
-    setTimeout(function() {
-      // Vibe.vibrate('double');
+    else {
+      clearInterval(interval);
+      stateSmallVibe();
       stateReadAccel();
-    }, waitingTime);
-  }
+    }
+  }, 1000);
 }
+
+
 
 function stateSmallVibe() {
   Vibe.vibrate('short');
@@ -102,29 +121,41 @@ function stateSmallVibe() {
 
 var storeValue = [];
 var storeTime = [];
+var steps = setSteps();
+var countDownWindow;
 
 function stateReadAccel() {
-  state = 'read_accel';
   Accel.init();
   Accel.config({
     rate: 50,
     samples: 5
   });
+  countDownWindow = counterCardHandler(steps);
+  countDownWindow.show();
 
-  cartGetReady.on('accelData', function(e) {
-  //  console.log('Accel data: ' + JSON.stringify(e.accels));
+  counterWindows.map(function(window) {
+    window.hide();
+  });
+
+  countDownWindow.on('accelData', function(e) {
     var data = e.accels;
-    // data.map(function(item){
-    //   printAccelRecord(item);
-    // });
     value = getAccelRef(data[0]);
-    // console.log(value);
     storeValue.push(value);
     storeTime.push(data[0].time);
     if (detectChange(storeValue, storeTime)) {
       storeValue = [];
       storeTime = [];
     }
+    var text = new UI.Text({
+      position: new Vector2(0, 25),
+      size: new Vector2(150, 45),
+      text: steps,
+      font: 'bitham-42-bold',
+      color: '#ffffff',
+      backgroundColor: '#000000',
+      textAlign: 'center'
+    });
+    countDownWindow.add(text);
   });
 }
 
@@ -146,12 +177,10 @@ function detectChange(storeValue, storeTime) {
     var timeStart = storeTime[0];
     var timeEnd = storeTime[storeTime.length - 1];
     var timeElapse = Math.abs(timeStart - timeEnd);
-    // console.log(timeStart, timeEnd, timeElapse, waitMills);
     if (timeElapse > waitMills) {
       var min = storeValue.min();
       var max = storeValue.max();
       var diff = Math.abs(min - max);
-      // console.log(storeValue.length, storeTime.length, min, max, diff);
       if (diff < 18) {
         staticTimes++;
         dinamycTimes = 0;
@@ -167,6 +196,19 @@ function detectChange(storeValue, storeTime) {
           stateSmallVibe();
           enableVibe = false;
           dinamycTimes = 0;
+          steps--;
+          if (steps === 0 && generalCounter < exercises.length) {
+            console.log('here', steps, generalCounter, exercises.length);
+            countDownWindow.hide();
+            generalCounter++;
+            if (generalCounter === exercises.length) {
+              setStateComplete();
+            }
+            else {
+              steps = setSteps();
+              stateStartRoutine();
+            }
+          }
         }
       }
       console.log(diff, staticTimes, dinamycTimes);
@@ -174,6 +216,20 @@ function detectChange(storeValue, storeTime) {
     }
   }
   return false;
+}
+
+function setSteps() {
+  return 5;
+}
+
+function setStateComplete() {
+  console.log('setStateComplete');
+  completeCard.show();
+  exercises.map(function() {
+    countDownWindow.hide();
+  });
+  generalCounter = 0;
+  steps = setSteps();
 }
 
 Array.prototype.max = function() {

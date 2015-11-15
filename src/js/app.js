@@ -198,6 +198,7 @@ function detectChange(storeValue, storeTime) {
           enableVibe = false;
           dinamycTimes = 0;
           steps--;
+          websocket.send('pebble_exercise_bits');
           if (steps === 0 && generalCounter < exercises.length) {
             websocket.send('pebble_exercise_complete');
             countDownWindow.hide();

@@ -219,7 +219,7 @@ function detectChange(storeValue, storeTime) {
 }
 
 function setSteps() {
-  return 5;
+  return 3;
 }
 
 function setStateComplete() {
@@ -230,6 +230,7 @@ function setStateComplete() {
   });
   generalCounter = 0;
   steps = setSteps();
+  websocket.send('pebble_exercise_finish');
 }
 
 Array.prototype.max = function() {

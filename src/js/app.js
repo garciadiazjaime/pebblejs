@@ -57,7 +57,7 @@ ajax({ url: API_URL, type: 'json' },
 
 
 var wsUri = 'ws://10.0.6.80:3333/';
-
+var websocket;
 function testWebSocket() {
   websocket = new WebSocket(wsUri);
   websocket.onopen = function(evt) {
@@ -107,7 +107,7 @@ function stateShowCounter() {
     }
     else {
       clearInterval(interval);
-      stateSmallVibe();
+      websocket.send('pebble_exercise_start');
       stateReadAccel();
     }
   }, 1000);
@@ -198,7 +198,7 @@ function detectChange(storeValue, storeTime) {
           dinamycTimes = 0;
           steps--;
           if (steps === 0 && generalCounter < exercises.length) {
-            console.log('here', steps, generalCounter, exercises.length);
+            websocket.send('pebble_exercise_complete');
             countDownWindow.hide();
             generalCounter++;
             if (generalCounter === exercises.length) {

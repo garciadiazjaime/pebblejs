@@ -136,12 +136,6 @@ function getAccelRef(data) {
   return Math.round(Math.abs(x * y * z));
 }
 
-function millisToMinutesAndSeconds(millis) {
-  var minutes = Math.floor(millis / 60000);
-  var seconds = ((millis % 60000) / 1000).toFixed(0);
-  return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
-}
-
 var enableVibe = true;
 var staticTimes = 0;
 var dinamycTimes = 0;
@@ -158,19 +152,20 @@ function detectChange(storeValue, storeTime) {
       var max = storeValue.max();
       var diff = Math.abs(min - max);
       // console.log(storeValue.length, storeTime.length, min, max, diff);
-      if (diff < 10) {
+      if (diff < 18) {
         staticTimes++;
-        if (staticTimes > 2 && enableVibe) {
-          stateSmallVibe();
-          enableVibe = false;
-          staticTimes = 0;
+        dinamycTimes = 0;
+        if (staticTimes > 3) {
+          enableVibe = true;
+          dinamycTimes = 0;
         }
       }
       else {
         dinamycTimes++;
         staticTimes = 0;
-        if (dinamycTimes > 2) {
-          enableVibe = true;
+        if (dinamycTimes > 0 && enableVibe) {
+          stateSmallVibe();
+          enableVibe = false;
           dinamycTimes = 0;
         }
       }

@@ -121,10 +121,11 @@ function stateSmallVibe() {
 
 var storeValue = [];
 var storeTime = [];
-var steps = setSteps();
+var steps;
 var countDownWindow;
 
 function stateReadAccel() {
+  steps = setSteps();
   Accel.init();
   Accel.config({
     rate: 50,
@@ -219,7 +220,9 @@ function detectChange(storeValue, storeTime) {
 }
 
 function setSteps() {
-  return 3;
+  var bits = exercises[generalCounter].content.split('::');
+  var repetitions = parseInt(bits[0]);
+  return repetitions;
 }
 
 function setStateComplete() {

@@ -1,0 +1,4 @@
+pebble clean
+pebble build
+pebble install
+pebble logs

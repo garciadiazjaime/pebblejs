@@ -90,38 +90,104 @@ function stateLongVibe() {
   if (state === 'get_ready') {
     state = 'long_vibe';
     setTimeout(function() {
-      Vibe.vibrate('long');
-      Vibe.vibrate('long');
-      Vibe.vibrate('long');
+      // Vibe.vibrate('double');
       stateReadAccel();
     }, waitingTime);
   }
 }
 
+function stateSmallVibe() {
+  Vibe.vibrate('short');
+}
+
+var storeValue = [];
+var storeTime = [];
+
 function stateReadAccel() {
   state = 'read_accel';
   Accel.init();
   Accel.config({
-    rate: 100
+    rate: 50,
+    samples: 5
   });
 
   cartGetReady.on('accelData', function(e) {
   //  console.log('Accel data: ' + JSON.stringify(e.accels));
     var data = e.accels;
-    console.log('====');
-    printAccelRecord(data[0]);
-    console.log('====');
+    // data.map(function(item){
+    //   printAccelRecord(item);
+    // });
+    value = getAccelRef(data[0]);
+    // console.log(value);
+    storeValue.push(value);
+    storeTime.push(data[0].time);
+    if (detectChange(storeValue, storeTime)) {
+      storeValue = [];
+      storeTime = [];
+    }
   });
 }
 
-function printAccelRecord(data) {
-  console.log('x:' + data.x + '\t\ty: ' + data.y + '\t\tz: ' + data.z);
-  var PEBBLE_URL = 'http://10.0.6.80:3000/api/pebble/accel?data=' + JSON.stringify(data);
-  console.log('PEBBLE_URL', PEBBLE_URL);
-  ajax({ url: PEBBLE_URL, type: 'json' }, function(data) {
-    console.log('ajax response', data);
-  });
+function getAccelRef(data) {
+  var root = 4;
+  var x = Math.pow(Math.abs(data.x) || 1, 1 / root);
+  var y = Math.pow(Math.abs(data.y) || 1, 1 / root);
+  var z = Math.pow(Math.abs(data.z) || 1, 1 / root);
+  return Math.round(Math.abs(x * y * z));
 }
+
+function millisToMinutesAndSeconds(millis) {
+  var minutes = Math.floor(millis / 60000);
+  var seconds = ((millis % 60000) / 1000).toFixed(0);
+  return minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+}
+
+var enableVibe = true;
+var staticTimes = 0;
+var dinamycTimes = 0;
+
+function detectChange(storeValue, storeTime) {
+  var waitMills = 100;
+  if (storeValue.length > 1) {
+    var timeStart = storeTime[0];
+    var timeEnd = storeTime[storeTime.length - 1];
+    var timeElapse = Math.abs(timeStart - timeEnd);
+    // console.log(timeStart, timeEnd, timeElapse, waitMills);
+    if (timeElapse > waitMills) {
+      var min = storeValue.min();
+      var max = storeValue.max();
+      var diff = Math.abs(min - max);
+      // console.log(storeValue.length, storeTime.length, min, max, diff);
+      if (diff < 10) {
+        staticTimes++;
+        if (staticTimes > 2 && enableVibe) {
+          stateSmallVibe();
+          enableVibe = false;
+          staticTimes = 0;
+        }
+      }
+      else {
+        dinamycTimes++;
+        staticTimes = 0;
+        if (dinamycTimes > 2) {
+          enableVibe = true;
+          dinamycTimes = 0;
+        }
+      }
+      console.log(diff, staticTimes, dinamycTimes);
+      return true;
+    }
+  }
+  return false;
+}
+
+Array.prototype.max = function() {
+  return Math.max.apply(null, this);
+};
+
+Array.prototype.min = function() {
+  return Math.min.apply(null, this);
+};
 //
 // main.on('click', 'select', function(e) {
 //   var wind = new UI.Window({
